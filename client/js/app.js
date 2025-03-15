@@ -28,7 +28,7 @@
       headers: { "Content-type": "application/json" },
     })
     .then(response => response.json())
-    .then(json => updateOrderForm(json));
+    .then(json => json.error ? displayError(json.message) : updateOrderForm(json))
   }
 
   function updateOrderForm(json) {
