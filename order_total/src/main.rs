@@ -29,6 +29,20 @@ struct Order {
     total: f32,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+struct UnknownRateError {
+    status: String, 
+    message: String, 
+}
+
+impl UnknownRateError {
+    fn new(zip_code: String) -> Self {
+        Self {
+          status: "error".to_string(),
+          message:  format!("The zip code {} in the order does not have a corresponding sales tax rate.", zip_code).to_string(),  
+        }
+    }
+}
 /*
 impl Order {
     fn new(
@@ -70,16 +84,26 @@ async fn handle_request(req: Request<Body>) -> Result<Response<Body>, anyhow::Er
             let mut order: Order = serde_json::from_slice(&byte_stream).unwrap();
 
             let client = reqwest::Client::new();
-            let rate = client.post(&*SALES_TAX_RATE_SERVICE)
+            let rate  = client.post(&*SALES_TAX_RATE_SERVICE)
                 .body(order.shipping_zip.clone())
                 .send()
                 .await?
                 .text()
                 .await?
-                .parse::<f32>()?;
+                .parse::<f32>();
 
-            order.total = order.subtotal * (1.0 + rate);
-            Ok(response_build(&serde_json::to_string_pretty(&order)?))
+            match rate {
+                Ok(rate) => {
+
+                    order.total = order.subtotal * (1.0 + rate);
+                    Ok(response_build(&serde_json::to_string_pretty(&order)?))
+                }, 
+                Err(_) => {
+                    let error = UnknownRateError::new(order.shipping_zip.clone());
+                    Ok(response_build(&serde_json::to_string_pretty(&error)?))  
+                }
+            }
+
         }
 
         // Return the 404 Not Found for other routes.
